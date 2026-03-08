@@ -12,6 +12,11 @@ services:
     environment:
       MYSQL_USER: ${MYSQL_USER:-slurm}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+      EXTRA_PACKAGES: ${EXTRA_PACKAGES:-}
+      ROOT_PASSWORD: ${ROOT_PASSWORD:-}
+      SSH_PORT: ${SSH_PORT:-}
+      SSH_PERMIT_ROOT_LOGIN: ${SSH_PERMIT_ROOT_LOGIN:-}
+      SSH_PASSWORD_AUTH: ${SSH_PASSWORD_AUTH:-}
     volumes:
       - var_lib_mysql:/var/lib/mysql
       - var_log_slurm:/var/log/slurm
