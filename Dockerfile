@@ -38,6 +38,7 @@ ARG TARGETARCH
 # Enable CRB and EPEL, install build dependencies
 # http-parser: temporarily using RL9 packages (https://support.schedmd.com/show_bug.cgi?id=21801)
 RUN set -ex \
+    && echo -e "retries=10\ntimeout=60" >> /etc/dnf/dnf.conf \
     && RPM_ARCH=$(case "${TARGETARCH}" in \
          amd64) echo "x86_64" ;; \
          arm64) echo "aarch64" ;; \
@@ -119,6 +120,7 @@ ARG TARGETARCH
 # Install runtime dependencies
 # http-parser: temporarily using RL9 package (https://support.schedmd.com/show_bug.cgi?id=21801)
 RUN set -ex \
+    && echo -e "retries=10\ntimeout=60" >> /etc/dnf/dnf.conf \
     && RPM_ARCH=$(case "${TARGETARCH}" in \
          amd64) echo "x86_64" ;; \
          arm64) echo "aarch64" ;; \
