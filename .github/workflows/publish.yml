@@ -36,3 +36,6 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}
             ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-${{ github.event.release.tag_name }}
+        env:
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        retries: 3
