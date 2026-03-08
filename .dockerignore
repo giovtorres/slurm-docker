@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.example
+.gitignore
+.dockerignore
+*.md
+LICENSE
+Makefile
+test_cluster.sh
+tests/
+venv/
+volumes/

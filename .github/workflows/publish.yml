@@ -1,0 +1,39 @@
+name: Publish Docker Image
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read Slurm version from .env.example
+        id: config
+        run: |
+          echo "slurm_version=$(grep '^SLURM_VERSION=' .env.example | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            SLURM_VERSION=${{ steps.config.outputs.slurm_version }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-${{ github.event.release.tag_name }}

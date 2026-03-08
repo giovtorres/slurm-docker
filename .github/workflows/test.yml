@@ -1,0 +1,61 @@
+name: Test Slurm Container
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        slurm_version: ['25.11.2', '25.05.6', '24.11.7']
+        runner: ['ubuntu-latest']
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image - Slurm ${{ matrix.slurm_version }} (${{ matrix.arch }})
+        run: |
+          echo "SLURM_VERSION=${{ matrix.slurm_version }}" > .env
+          docker compose build
+
+      - name: Start container
+        run: |
+          docker compose up -d
+          echo "Waiting for services to start..."
+          sleep 30
+
+      - name: Wait for Slurm to be ready
+        run: |
+          timeout 120 bash -c 'until docker exec slurm scontrol ping 2>/dev/null | grep -q "UP"; do
+            echo "Waiting for slurmctld..."
+            sleep 5
+          done'
+          echo "slurmctld is ready"
+
+      - name: Show status
+        run: |
+          docker compose ps
+          docker exec slurm sinfo || true
+          docker exec slurm scontrol show nodes || true
+
+      - name: Run test suite
+        run: chmod +x test_cluster.sh && ./test_cluster.sh
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v -t 3

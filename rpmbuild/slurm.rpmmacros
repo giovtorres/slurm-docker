@@ -1,0 +1,10 @@
+# Slurm RPM Build Macros
+# See: https://slurm.schedmd.com/quickstart_admin.html#rpmbuild
+
+%_prefix           /usr
+%_slurm_sysconfdir /etc/slurm
+%_libdir           /usr/lib64
+%_with_slurmrestd 1
+%with_mysql        "--with-mysql_config=/usr/bin"
+%_without_ofed 1
+%_with_multiple_slurmd 1
