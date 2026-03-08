@@ -1,0 +1,46 @@
+# sshd_config - Default SSH for Slurm container
+#
+# Customization options (in order of preference):
+#   1. Mount a custom file to /etc/ssh/sshd_config (full control)
+#   2. Use environment variables for common settings (see below)
+#
+# Environment variables (applied at startup by docker-entrypoint.sh):
+#   SSH_PERMIT_ROOT_LOGIN    - yes|no|prohibit-password (default: prohibit-password)
+#   SSH_PASSWORD_AUTH        - yes|no (default: no)
+#   SSH_PORT                 - port number (default: 22)
+#   ROOT_PASSWORD            - if set, enables root login with this password
+
+Port 22
+ListenAddress 0.0.0.0
+
+# Authentication
+PermitRootLogin prohibit-password
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+PermitEmptyPasswords no
+KbdInteractiveAuthentication no
+GSSAPIAuthentication no
+
+# CI/CD friendly defaults (no throttling)
+MaxStartups 100:30:200
+LoginGraceTime 120
+MaxAuthTries 20
+UseDNS no
+
+# Accept environment variables from Slurm
+AcceptEnv LANG LC_* SLURM_* COLORTERM NO_COLOR
+
+# Logging
+SyslogFacility AUTHPRIV
+LogLevel INFO
+
+# Keep connections alive
+ClientAliveInterval 60
+ClientAliveCountMax 3
+
+# X11 forwarding (off by default)
+X11Forwarding no
+
+# Subsystems
+Subsystem sftp /usr/libexec/openssh/sftp-server
