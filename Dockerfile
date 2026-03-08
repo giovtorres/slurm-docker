@@ -154,6 +154,7 @@ RUN set -ex \
        procps-ng \
        psmisc \
        python3 \
+       python3-devel \
        readline \
        vim-enhanced \
        libjwt \
