@@ -142,6 +142,25 @@ test_job_accounting() {
     fi
 }
 
+test_resource_tracking() {
+    print_test "Resource tracking (jobacct_gather/linux)..."
+    JOB_OUTPUT=$(docker exec "$CONTAINER" bash -c "sbatch --wrap='sleep 8' --wait" 2>&1)
+    JOB_ID=$(echo "$JOB_OUTPUT" | sed -n 's/.*Submitted batch job \([0-9][0-9]*\).*/\1/p')
+    if [ -z "$JOB_ID" ]; then
+        print_fail "Could not submit resource tracking job"
+        return 1
+    fi
+    sleep 3
+    MAX_RSS=$(docker exec "$CONTAINER" sacct -j "$JOB_ID.batch" -n -o MaxRSS 2>/dev/null | tr -d '[:space:]')
+    if [ -n "$MAX_RSS" ] && [ "$MAX_RSS" != "0" ]; then
+        print_pass "Resource tracking works (MaxRSS: $MAX_RSS)"
+    else
+        print_fail "No resource usage recorded (MaxRSS: '$MAX_RSS')"
+        docker exec "$CONTAINER" sacct -j "$JOB_ID" -o JobID,MaxRSS,State 2>/dev/null || true
+        return 1
+    fi
+}
+
 test_multi_node_job() {
     print_test "Multi-node job allocation..."
     JOB_OUTPUT=$(docker exec "$CONTAINER" bash -c "srun -N 2 hostname" 2>&1 || echo "FAILED")
@@ -179,7 +198,7 @@ main() {
     if [ -f .env ]; then
         SLURM_VERSION=$(grep SLURM_VERSION .env | cut -d= -f2)
     else
-        SLURM_VERSION="unknown"
+        SLURM_VERSION=$(docker exec "$CONTAINER" scontrol version 2>/dev/null | head -1 | grep -oP '[\d.]+' || echo "unknown")
     fi
 
     print_header "Slurm Docker Test Suite (v${SLURM_VERSION})"
@@ -196,6 +215,7 @@ main() {
     test_job_submission || true
     test_job_execution || true
     test_job_accounting || true
+    test_resource_tracking || true
     test_multi_node_job || true
     test_rest_api || true
 
