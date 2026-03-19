@@ -162,6 +162,7 @@ RUN set -ex \
        openssh-clients \
        google-authenticator \
        passwd \
+       xz \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
