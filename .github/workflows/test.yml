@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        slurm_version: ['25.11.2', '25.05.6', '24.11.7']
+        slurm_version: ['25.11.4', '25.05.7', '24.11.7']
         runner: ['ubuntu-latest']
         include:
           - runner: ubuntu-latest

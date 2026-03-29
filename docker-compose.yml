@@ -3,8 +3,8 @@ services:
     build:
       context: .
       args:
-        SLURM_VERSION: ${SLURM_VERSION:-25.11.2}
-    image: slurm-docker:${SLURM_VERSION:-25.11.2}
+        SLURM_VERSION: ${SLURM_VERSION:-25.11.4}
+    image: slurm-docker:${SLURM_VERSION:-25.11.4}
     hostname: slurmctl
     container_name: slurm
     init: true
