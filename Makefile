@@ -2,8 +2,8 @@
 
 .DEFAULT_GOAL := help
 
-SUPPORTED_VERSIONS := 24.11.7 25.05.6 25.11.2
-DEFAULT_VERSION := 25.11.2
+SUPPORTED_VERSIONS := 24.11.7 25.05.7 25.11.4
+DEFAULT_VERSION := 25.11.4
 
 CYAN := $(shell tput -Txterm setaf 6)
 RESET := $(shell tput -Txterm sgr0)
@@ -38,7 +38,7 @@ help:  ## Show this help message
 	@echo ""
 	@echo "Examples:"
 	@echo "  make set-version VER=24.11.7"
-	@echo "  make test-version VER=25.05.6"
+	@echo "  make test-version VER=25.05.7"
 
 build:  ## Build Docker image
 	docker compose --progress plain build

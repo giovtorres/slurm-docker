@@ -27,7 +27,7 @@ All settings go in `.env` (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SLURM_VERSION` | `25.11.2` | Slurm version to build |
+| `SLURM_VERSION` | `25.11.4` | Slurm version to build |
 | `MYSQL_USER` | `slurm` | MariaDB user |
 | `MYSQL_PASSWORD` | `password` | MariaDB password |
 | `EXTRA_PACKAGES` | | Additional packages to install at startup |
