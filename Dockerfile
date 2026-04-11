@@ -4,6 +4,7 @@
 # Stage 3: Runtime image with bash entrypoint
 
 ARG SLURM_VERSION
+ARG ROCKY_VERSION=10
 ARG GOSU_VERSION=1.19
 
 # ============================================================================
@@ -30,13 +31,16 @@ RUN set -ex \
 # ============================================================================
 # Stage 2: Build RPMs
 # ============================================================================
-FROM rockylinux/rockylinux:10 AS builder
+FROM rockylinux/rockylinux:${ROCKY_VERSION} AS builder
 
 ARG SLURM_VERSION
+ARG ROCKY_VERSION
 ARG TARGETARCH
 
-# Enable CRB and EPEL, install build dependencies
-# http-parser: temporarily using RL9 packages (https://support.schedmd.com/show_bug.cgi?id=21801)
+# Enable CRB/powertools and EPEL, install build dependencies
+# http-parser: RL10 lacks native packages, use RL9 RPMs as workaround
+# (https://support.schedmd.com/show_bug.cgi?id=21801)
+# RL8/9 have http-parser natively; RL8 uses "powertools" instead of "crb"
 RUN set -ex \
     && echo -e "retries=10\ntimeout=60" >> /etc/dnf/dnf.conf \
     && RPM_ARCH=$(case "${TARGETARCH}" in \
@@ -44,14 +48,18 @@ RUN set -ex \
          arm64) echo "aarch64" ;; \
          *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
        esac) \
+    && CRB_REPO=$([ "${ROCKY_VERSION}" = "8" ] && echo "powertools" || echo "crb") \
     && dnf makecache \
     && dnf -y install dnf-plugins-core epel-release wget \
-    && dnf config-manager --set-enabled crb \
+    && dnf config-manager --set-enabled ${CRB_REPO} \
     && dnf makecache \
+    && if [ "${ROCKY_VERSION}" = "10" ]; then \
+         dnf -y install \
+           https://download.rockylinux.org/pub/rocky/9/AppStream/${RPM_ARCH}/os/Packages/h/http-parser-2.9.4-6.el9.${RPM_ARCH}.rpm \
+           https://download.rockylinux.org/pub/rocky/9/CRB/${RPM_ARCH}/os/Packages/h/http-parser-devel-2.9.4-6.el9.${RPM_ARCH}.rpm; \
+       fi \
     && dnf -y install \
-       https://download.rockylinux.org/pub/rocky/9/AppStream/${RPM_ARCH}/os/Packages/h/http-parser-2.9.4-6.el9.${RPM_ARCH}.rpm \
-       https://download.rockylinux.org/pub/rocky/9/CRB/${RPM_ARCH}/os/Packages/h/http-parser-devel-2.9.4-6.el9.${RPM_ARCH}.rpm \
-    && dnf -y install \
+       $( [ "${ROCKY_VERSION}" != "10" ] && echo "http-parser http-parser-devel" ) \
        autoconf \
        automake \
        bzip2 \
@@ -61,7 +69,6 @@ RUN set -ex \
        gcc-c++ \
        git \
        gtk2-devel \
-       hdf5-devel \
        hwloc-devel \
        json-c-devel \
        libcurl-devel \
@@ -69,7 +76,6 @@ RUN set -ex \
        lua-devel \
        lz4-devel \
        make \
-       man2html \
        mariadb-devel \
        munge \
        munge-devel \
@@ -83,8 +89,10 @@ RUN set -ex \
        readline-devel \
        rpm-build \
        rpmdevtools \
-       rrdtool-devel \
        libjwt-devel \
+    && dnf -y install hdf5-devel || true \
+    && dnf -y install rrdtool-devel || true \
+    && dnf -y install man2html || echo true \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 
@@ -107,18 +115,22 @@ RUN set -ex \
 # ============================================================================
 # Stage 3: Runtime image
 # ============================================================================
-FROM rockylinux/rockylinux:10
+FROM rockylinux/rockylinux:${ROCKY_VERSION}
 
 LABEL org.opencontainers.image.source="https://github.com/giovtorres/slurm-docker" \
       org.opencontainers.image.title="slurm-docker" \
-      org.opencontainers.image.description="All-in-one Slurm Docker container on Rocky Linux 10" \
+      org.opencontainers.image.description="All-in-one Slurm Docker container" \
       maintainer="Giovanni Torres"
 
 ARG SLURM_VERSION
+ARG ROCKY_VERSION
 ARG TARGETARCH
 
 # Install runtime dependencies
-# http-parser: temporarily using RL9 package (https://support.schedmd.com/show_bug.cgi?id=21801)
+# http-parser: RL10 lacks native packages, use RL9 RPM as workaround
+# (https://support.schedmd.com/show_bug.cgi?id=21801)
+# RL8/9 have http-parser natively; RL8 uses "powertools" instead of "crb"
+# google-authenticator: package is "google-authenticator" on RL8/9 EPEL
 RUN set -ex \
     && echo -e "retries=10\ntimeout=60" >> /etc/dnf/dnf.conf \
     && RPM_ARCH=$(case "${TARGETARCH}" in \
@@ -126,14 +138,19 @@ RUN set -ex \
          arm64) echo "aarch64" ;; \
          *) echo "Unsupported: ${TARGETARCH}" && exit 1 ;; \
        esac) \
+    && CRB_REPO=$([ "${ROCKY_VERSION}" = "8" ] && echo "powertools" || echo "crb") \
+    && GA_PKG=$([ "${ROCKY_VERSION}" = "10" ] && echo "google-authenticator" || echo "google-authenticator") \
     && dnf makecache \
     && dnf -y update \
     && dnf -y install dnf-plugins-core epel-release wget \
-    && dnf config-manager --set-enabled crb \
+    && dnf config-manager --set-enabled ${CRB_REPO} \
     && dnf makecache \
+    && if [ "${ROCKY_VERSION}" = "10" ]; then \
+         dnf -y install \
+           https://download.rockylinux.org/pub/rocky/9/AppStream/${RPM_ARCH}/os/Packages/h/http-parser-2.9.4-6.el9.${RPM_ARCH}.rpm; \
+       fi \
     && dnf -y install \
-       https://download.rockylinux.org/pub/rocky/9/AppStream/${RPM_ARCH}/os/Packages/h/http-parser-2.9.4-6.el9.${RPM_ARCH}.rpm \
-    && dnf -y install \
+       $( [ "${ROCKY_VERSION}" != "10" ] && echo "http-parser" ) \
        bash \
        bash-completion \
        bzip2 \
@@ -160,7 +177,7 @@ RUN set -ex \
        libjwt \
        openssh-server \
        openssh-clients \
-       google-authenticator \
+       ${GA_PKG} \
        passwd \
        xz \
     && dnf clean all \
@@ -195,7 +212,7 @@ RUN set -x \
     && groupadd -r --gid=991 slurmrest \
     && useradd -r -g slurmrest --uid=991 slurmrest \
     && chmod 0755 /etc \
-    && /sbin/mungekey --create \
+    && if [ "${ROCKY_VERSION}" = "8" ]; then create-munge-key; else /sbin/mungekey --create; fi \
     && chown munge:munge /etc/munge/munge.key \
     && chmod 0400 /etc/munge/munge.key \
     && mkdir -m 0755 -p \

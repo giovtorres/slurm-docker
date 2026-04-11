@@ -7,6 +7,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rocky_version: ['8', '9', '10']
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +27,22 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push multi-arch image
+      - name: Build and push RL${{ matrix.rocky_version }} image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          # RL8: restrict to amd64 due to EPEL 8 aarch64 package gaps
+          platforms: ${{ matrix.rocky_version == '8' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          push: true
+          build-args: |
+            SLURM_VERSION=${{ steps.config.outputs.slurm_version }}
+            ROCKY_VERSION=${{ matrix.rocky_version }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-rl${{ matrix.rocky_version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-rl${{ matrix.rocky_version }}-${{ github.event.release.tag_name }}
+
+      - name: Push convenience aliases (RL10 only)
+        if: matrix.rocky_version == '10'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -32,7 +50,7 @@ jobs:
           push: true
           build-args: |
             SLURM_VERSION=${{ steps.config.outputs.slurm_version }}
+            ROCKY_VERSION=10
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-${{ github.event.release.tag_name }}
