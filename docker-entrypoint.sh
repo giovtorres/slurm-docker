@@ -28,6 +28,9 @@ wait_for_port() {
     exit 1
 }
 
+# --- Patch SlurmctldHost to match actual container hostname ---
+sed -i "s/^SlurmctldHost=.*/SlurmctldHost=$(hostname -s)/" /etc/slurm/slurm.conf
+
 # --- Munge ---
 echo "---> Starting munged..."
 mkdir -p /run/munge
@@ -75,9 +78,11 @@ PIDS+=($!)
 echo "---> Starting MariaDB..."
 if [ ! -d "/var/lib/mysql/mysql" ]; then
     echo "-- Initializing database..."
-    mysql_install_db --user=mysql --datadir=/var/lib/mysql
+    DB_INIT=$(command -v mariadb-install-db || command -v mysql_install_db)
+    ${DB_INIT} --user=mysql --datadir=/var/lib/mysql
 fi
-/usr/libexec/mariadbd --user=mysql --skip-name-resolve --skip-host-cache &
+MARIADBD=$(command -v mariadbd || command -v mysqld_safe || command -v mysqld)
+${MARIADBD} --user=mysql --skip-name-resolve --skip-host-cache &
 PIDS+=($!)
 
 echo "-- Waiting for MariaDB..."
@@ -88,8 +93,8 @@ for i in $(seq 1 60); do
     sleep 1
 done
 
-MYSQL_USER="${MYSQL_USER:-slurm}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-password}"
+export MYSQL_USER="${MYSQL_USER:-slurm}"
+export MYSQL_PASSWORD="${MYSQL_PASSWORD:-password}"
 echo "-- Creating Slurm database if needed..."
 mysql -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'localhost' IDENTIFIED BY '${MYSQL_PASSWORD}'"
 mysql -e "CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'slurmctl' IDENTIFIED BY '${MYSQL_PASSWORD}'"

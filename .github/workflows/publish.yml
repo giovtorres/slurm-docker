@@ -4,16 +4,19 @@ on:
   release:
     types: [published]
 
+env:
+  # The Slurm version that `latest` and `latest-rl*` tags point to
+  LATEST_SLURM: '25.11.4'
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        slurm_version: ['25.11.4', '25.05.7', '24.11.7']
+        rocky_version: ['8', '9', '10']
     steps:
       - uses: actions/checkout@v4
-
-      - name: Read Slurm version from .env.example
-        id: config
-        run: |
-          echo "slurm_version=$(grep '^SLURM_VERSION=' .env.example | cut -d= -f2)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v4
 
@@ -24,15 +27,44 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push multi-arch image
+      - name: Compute tags
+        id: tags
+        run: |
+          USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          SLURM="${{ matrix.slurm_version }}"
+          ROCKY="${{ matrix.rocky_version }}"
+
+          # Always include the exact version tag
+          TAGS="${USER}/slurm-docker:${SLURM}-rl${ROCKY}"
+
+          # RL10 is the default OS — add a plain `{slurm}` alias
+          if [ "${ROCKY}" = "10" ]; then
+            TAGS="${TAGS}
+          ${USER}/slurm-docker:${SLURM}"
+          fi
+
+          # Latest Slurm version gets `latest-rl{rocky}` and (on RL10) `latest`
+          if [ "${SLURM}" = "${{ env.LATEST_SLURM }}" ]; then
+            TAGS="${TAGS}
+          ${USER}/slurm-docker:latest-rl${ROCKY}"
+            if [ "${ROCKY}" = "10" ]; then
+              TAGS="${TAGS}
+          ${USER}/slurm-docker:latest"
+            fi
+          fi
+
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$TAGS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Slurm ${{ matrix.slurm_version }} on RL${{ matrix.rocky_version }}
         uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # RL8: restrict to amd64 due to EPEL 8 aarch64 package gaps
+          platforms: ${{ matrix.rocky_version == '8' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |
-            SLURM_VERSION=${{ steps.config.outputs.slurm_version }}
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/slurm-docker:${{ steps.config.outputs.slurm_version }}-${{ github.event.release.tag_name }}
+            SLURM_VERSION=${{ matrix.slurm_version }}
+            ROCKY_VERSION=${{ matrix.rocky_version }}
+          tags: ${{ steps.tags.outputs.tags }}
