@@ -1,6 +1,6 @@
 # slurm-docker
 
-All-in-one [Slurm](https://slurm.schedmd.com/) container on Rocky Linux 10. Runs MariaDB,
+All-in-one [Slurm](https://slurm.schedmd.com/) container on Rocky Linux (8, 9, or 10). Runs MariaDB,
 slurmdbd, slurmctld, slurmd (3 nodes), slurmrestd, and SSH in a single container.
 
 ## Quick start
@@ -28,6 +28,7 @@ All settings go in `.env` (see `.env.example`):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SLURM_VERSION` | `25.11.4` | Slurm version to build |
+| `ROCKY_VERSION` | `10` | Rocky Linux major version (8, 9, or 10) |
 | `MYSQL_USER` | `slurm` | MariaDB user |
 | `MYSQL_PASSWORD` | `password` | MariaDB password |
 | `EXTRA_PACKAGES` | | Additional packages to install at startup |
@@ -52,6 +53,12 @@ docker exec slurm scontrol reconfigure
 ## Make targets
 
 Run `make` to see all available commands. Key targets: `build`, `up`, `down`, `clean`, `rebuild`, `shell`, `test`, `status`, `logs`.
+
+## Multi-arch builds
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 .
+```
 
 ## Adding a new Slurm version
 

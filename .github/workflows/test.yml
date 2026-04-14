@@ -9,12 +9,14 @@ on:
 
 jobs:
   test:
+    name: "Slurm ${{ matrix.slurm_version }} / RL${{ matrix.rocky_version }}"
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         slurm_version: ['25.11.4', '25.05.7', '24.11.7']
+        rocky_version: ['8', '9', '10']
         runner: ['ubuntu-latest']
         include:
           - runner: ubuntu-latest
@@ -24,9 +26,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build image - Slurm ${{ matrix.slurm_version }} (${{ matrix.arch }})
+      - name: Build image - Slurm ${{ matrix.slurm_version }} RL${{ matrix.rocky_version }} (${{ matrix.arch }})
         run: |
-          echo "SLURM_VERSION=${{ matrix.slurm_version }}" > .env
+          printf 'SLURM_VERSION=%s\nROCKY_VERSION=%s\n' \
+            "${{ matrix.slurm_version }}" "${{ matrix.rocky_version }}" > .env
           docker compose build
 
       - name: Start container
