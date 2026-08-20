@@ -6,14 +6,14 @@ on:
 
 env:
   # The Slurm version that `latest` and `latest-rl*` tags point to
-  LATEST_SLURM: '25.11.4'
+  LATEST_SLURM: '26.05.3'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        slurm_version: ['25.11.4', '25.05.7', '24.11.7']
+        slurm_version: ['26.05.3', '25.11.4', '25.05.7', '24.11.7']
         rocky_version: ['8', '9', '10']
     steps:
       - uses: actions/checkout@v4

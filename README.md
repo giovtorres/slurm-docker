@@ -14,7 +14,7 @@ Wait ~20 seconds, then `make shell` to access the cluster.
 
 ## Supported versions
 
-25.11.x (default), 25.05.x, 24.11.x. Switch with:
+26.05.x (default), 25.11.x, 25.05.x, 24.11.x. Switch with:
 
 ```bash
 make set-version VER=24.11.7
@@ -27,7 +27,7 @@ All settings go in `.env` (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SLURM_VERSION` | `25.11.4` | Slurm version to build |
+| `SLURM_VERSION` | `26.05.3` | Slurm version to build |
 | `ROCKY_VERSION` | `10` | Rocky Linux major version (8, 9, or 10) |
 | `MYSQL_USER` | `slurm` | MariaDB user |
 | `MYSQL_PASSWORD` | `password` | MariaDB password |
@@ -38,7 +38,7 @@ All settings go in `.env` (see `.env.example`):
 
 ### Slurm configs
 
-Version-specific configs in `config/{25.11,25.05,24.11}/slurm.conf`, shared configs in `config/common/`. Edit live:
+Version-specific configs in `config/{26.05,25.11,25.05,24.11}/slurm.conf`, shared configs in `config/common/`. Edit live:
 
 ```bash
 docker exec -it slurm vi /etc/slurm/slurm.conf

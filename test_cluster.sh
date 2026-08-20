@@ -15,6 +15,13 @@ TESTS_FAILED=0
 
 CONTAINER="slurm"
 
+# Slurm clients block indefinitely when a daemon is gone (e.g. sacctmgr retries
+# forever without munge), which would hang the suite instead of failing it.
+# `timeout` runs inside the container, so this works on hosts without coreutils.
+EXEC_TIMEOUT=${EXEC_TIMEOUT:-60}
+dexec() { docker exec "$CONTAINER" timeout "$EXEC_TIMEOUT" "$@"; }
+dexec_t() { local t=$1; shift; docker exec "$CONTAINER" timeout "$t" "$@"; }
+
 print_header() { echo -e "${BLUE}================================${NC}\n${BLUE}$1${NC}\n${BLUE}================================${NC}"; }
 print_test() { echo -e "${YELLOW}[TEST]${NC} $1"; TESTS_RUN=$((TESTS_RUN + 1)); }
 print_pass() { echo -e "${GREEN}[PASS]${NC} $1"; TESTS_PASSED=$((TESTS_PASSED + 1)); }
@@ -33,7 +40,7 @@ test_container_running() {
 
 test_munge_auth() {
     print_test "MUNGE authentication..."
-    if docker exec "$CONTAINER" bash -c "munge -n | unmunge" >/dev/null 2>&1; then
+    if dexec bash -c "munge -n | unmunge" >/dev/null 2>&1; then
         print_pass "MUNGE authentication works"
     else
         print_fail "MUNGE authentication failed"
@@ -43,7 +50,7 @@ test_munge_auth() {
 
 test_mysql_connection() {
     print_test "MySQL database connection..."
-    if docker exec "$CONTAINER" bash -c "echo 'SELECT 1' | mysql -u\${MYSQL_USER} -p\${MYSQL_PASSWORD} 2>/dev/null" >/dev/null; then
+    if dexec bash -c "echo 'SELECT 1' | mysql -u\${MYSQL_USER} -p\${MYSQL_PASSWORD} 2>/dev/null" >/dev/null; then
         print_pass "MySQL connection successful"
     else
         print_fail "MySQL connection failed"
@@ -53,7 +60,7 @@ test_mysql_connection() {
 
 test_slurmdbd() {
     print_test "slurmdbd daemon..."
-    if docker exec "$CONTAINER" sacctmgr list cluster -n 2>/dev/null | grep -q "linux"; then
+    if dexec sacctmgr list cluster -n 2>/dev/null | grep -q "linux"; then
         print_pass "slurmdbd responding, cluster registered"
     else
         print_fail "slurmdbd not responding or cluster not registered"
@@ -63,7 +70,7 @@ test_slurmdbd() {
 
 test_slurmctld() {
     print_test "slurmctld daemon..."
-    if docker exec "$CONTAINER" scontrol ping >/dev/null 2>&1; then
+    if dexec scontrol ping >/dev/null 2>&1; then
         print_pass "slurmctld responding"
     else
         print_fail "slurmctld not responding"
@@ -73,7 +80,7 @@ test_slurmctld() {
 
 test_compute_nodes() {
     print_test "Compute nodes availability..."
-    NODE_COUNT=$(docker exec "$CONTAINER" sinfo -N -h 2>/dev/null | wc -l)
+    NODE_COUNT=$(dexec sinfo -N -h 2>/dev/null | wc -l)
     if [ "$NODE_COUNT" -eq 3 ]; then
         print_pass "3 compute nodes available"
     else
@@ -84,19 +91,19 @@ test_compute_nodes() {
 
 test_nodes_idle() {
     print_test "Compute nodes idle state..."
-    IDLE_NODES=$(docker exec "$CONTAINER" sinfo -h -o "%T" 2>/dev/null | grep -c "idle" || echo "0")
+    IDLE_NODES=$(dexec sinfo -h -o "%T" 2>/dev/null | grep -c "idle" || echo "0")
     if [ "$IDLE_NODES" -ge 1 ]; then
         print_pass "Nodes in idle state ($IDLE_NODES partitions)"
     else
         print_fail "No nodes in idle state"
-        docker exec "$CONTAINER" sinfo 2>/dev/null || true
+        dexec sinfo 2>/dev/null || true
         return 1
     fi
 }
 
 test_partition() {
     print_test "Partition configuration..."
-    if docker exec "$CONTAINER" sinfo -h 2>/dev/null | grep -q "normal"; then
+    if dexec sinfo -h 2>/dev/null | grep -q "normal"; then
         print_pass "Partition 'normal' exists"
     else
         print_fail "Partition 'normal' not found"
@@ -106,11 +113,11 @@ test_partition() {
 
 test_job_submission() {
     print_test "Job submission..."
-    JOB_ID=$(docker exec "$CONTAINER" bash -c "cd /data && sbatch --wrap='hostname' 2>&1" | sed -n 's/.*Submitted batch job \([0-9][0-9]*\).*/\1/p')
+    JOB_ID=$(dexec bash -c "cd /data && sbatch --wrap='hostname' 2>&1" | sed -n 's/.*Submitted batch job \([0-9][0-9]*\).*/\1/p')
     if [ -n "$JOB_ID" ]; then
         print_info "  Job ID: $JOB_ID"
         for i in $(seq 1 30); do
-            JOB_STATE=$(docker exec "$CONTAINER" squeue -j "$JOB_ID" -h -o "%T" 2>/dev/null || echo "COMPLETED")
+            JOB_STATE=$(dexec squeue -j "$JOB_ID" -h -o "%T" 2>/dev/null || echo "COMPLETED")
             [ "$JOB_STATE" = "COMPLETED" ] || [ -z "$JOB_STATE" ] && break
             sleep 1
         done
@@ -123,7 +130,7 @@ test_job_submission() {
 
 test_job_execution() {
     print_test "Job execution and output..."
-    OUTPUT=$(docker exec "$CONTAINER" bash -c "cd /data && sbatch --wrap='echo SUCCESS_TEST_\$SLURM_JOB_ID' --wait 2>&1 && sleep 2 && cat slurm-*.out | grep SUCCESS_TEST" 2>/dev/null || echo "")
+    OUTPUT=$(dexec_t 120 bash -c "cd /data && sbatch --wrap='echo SUCCESS_TEST_\$SLURM_JOB_ID' --wait 2>&1 && sleep 2 && cat slurm-*.out | grep SUCCESS_TEST" 2>/dev/null || echo "")
     if echo "$OUTPUT" | grep -q "SUCCESS_TEST"; then
         print_pass "Job executed with output"
     else
@@ -134,7 +141,7 @@ test_job_execution() {
 
 test_job_accounting() {
     print_test "Job accounting..."
-    if docker exec "$CONTAINER" sacct -n --format=JobID -X 2>/dev/null | grep -q "[0-9]"; then
+    if dexec sacct -n --format=JobID -X 2>/dev/null | grep -q "[0-9]"; then
         print_pass "Job accounting works"
     else
         print_fail "No jobs in accounting"
@@ -144,26 +151,26 @@ test_job_accounting() {
 
 test_resource_tracking() {
     print_test "Resource tracking (jobacct_gather/linux)..."
-    JOB_OUTPUT=$(docker exec "$CONTAINER" bash -c "sbatch --wrap='sleep 8' --wait" 2>&1)
+    JOB_OUTPUT=$(dexec_t 120 bash -c "sbatch --wrap='sleep 8' --wait" 2>&1)
     JOB_ID=$(echo "$JOB_OUTPUT" | sed -n 's/.*Submitted batch job \([0-9][0-9]*\).*/\1/p')
     if [ -z "$JOB_ID" ]; then
         print_fail "Could not submit resource tracking job"
         return 1
     fi
     sleep 3
-    MAX_RSS=$(docker exec "$CONTAINER" sacct -j "$JOB_ID.batch" -n -o MaxRSS 2>/dev/null | tr -d '[:space:]')
+    MAX_RSS=$(dexec sacct -j "$JOB_ID.batch" -n -o MaxRSS 2>/dev/null | tr -d '[:space:]')
     if [ -n "$MAX_RSS" ] && [ "$MAX_RSS" != "0" ]; then
         print_pass "Resource tracking works (MaxRSS: $MAX_RSS)"
     else
         print_fail "No resource usage recorded (MaxRSS: '$MAX_RSS')"
-        docker exec "$CONTAINER" sacct -j "$JOB_ID" -o JobID,MaxRSS,State 2>/dev/null || true
+        dexec sacct -j "$JOB_ID" -o JobID,MaxRSS,State 2>/dev/null || true
         return 1
     fi
 }
 
 test_multi_node_job() {
     print_test "Multi-node job allocation..."
-    JOB_OUTPUT=$(docker exec "$CONTAINER" bash -c "srun -N 2 hostname" 2>&1 || echo "FAILED")
+    JOB_OUTPUT=$(dexec_t 120 bash -c "srun -N 2 hostname" 2>&1 || echo "FAILED")
     OUTPUT_LINES=$(echo "$JOB_OUTPUT" | grep -v "^$" | wc -l)
     if [ "$OUTPUT_LINES" -eq 2 ]; then
         print_pass "Multi-node job ran on 2 nodes"
@@ -177,28 +184,38 @@ test_multi_node_job() {
 test_rest_api() {
     print_test "REST API (slurmrestd)..."
 
-    # Auto-detect API version from Slurm version
-    SLURM_VER=$(docker exec "$CONTAINER" scontrol version 2>/dev/null | head -1 | grep -oP '\d+\.\d+' || echo "25.11")
+    # Auto-detect API version from Slurm version. Each release ships a rolling
+    # window of data_parser/openapi versions, so try newest first.
+    # `scontrol version` prints e.g. "slurm 26.05.3"; awk/cut keeps this portable
+    # (BSD grep on macOS has no -P, which silently defaulted the version)
+    SLURM_VER=$(dexec scontrol version 2>/dev/null | head -1 | awk '{print $2}' | cut -d. -f1,2)
+    [ -n "$SLURM_VER" ] || SLURM_VER="26.05"
     case "$SLURM_VER" in
-        24.11) API_VERSION="v0.0.41" ;;
-        25.05) API_VERSION="v0.0.42" ;;
-        *)     API_VERSION="v0.0.42" ;;
+        24.11) API_VERSIONS="v0.0.41" ;;
+        25.05) API_VERSIONS="v0.0.42" ;;
+        25.11) API_VERSIONS="v0.0.44 v0.0.43 v0.0.42" ;;
+        26.05) API_VERSIONS="v0.0.45 v0.0.44 v0.0.43" ;;
+        *)     API_VERSIONS="v0.0.45 v0.0.44 v0.0.43 v0.0.42" ;;
     esac
 
-    if docker exec "$CONTAINER" curl -sf --unix-socket /var/run/slurmrestd/slurmrestd.socket \
-        "http://localhost/slurm/${API_VERSION}/ping" >/dev/null 2>&1; then
-        print_pass "REST API responding (${API_VERSION})"
-    else
-        print_fail "REST API not responding"
-        return 1
-    fi
+    for API_VERSION in $API_VERSIONS; do
+        if dexec curl -sf --unix-socket /var/run/slurmrestd/slurmrestd.socket \
+            "http://localhost/slurm/${API_VERSION}/ping" >/dev/null 2>&1; then
+            print_pass "REST API responding (${API_VERSION})"
+            return 0
+        fi
+    done
+
+    print_fail "REST API not responding (tried: ${API_VERSIONS})"
+    return 1
 }
 
 main() {
     if [ -f .env ]; then
         SLURM_VERSION=$(grep SLURM_VERSION .env | cut -d= -f2)
     else
-        SLURM_VERSION=$(docker exec "$CONTAINER" scontrol version 2>/dev/null | head -1 | grep -oP '[\d.]+' || echo "unknown")
+        SLURM_VERSION=$(dexec scontrol version 2>/dev/null | head -1 | awk '{print $2}')
+        [ -n "$SLURM_VERSION" ] || SLURM_VERSION="unknown"
     fi
 
     print_header "Slurm Docker Test Suite (v${SLURM_VERSION})"
