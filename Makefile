@@ -2,8 +2,8 @@
 
 .DEFAULT_GOAL := help
 
-SUPPORTED_VERSIONS := 24.11.7 25.05.7 25.11.4
-DEFAULT_VERSION := 25.11.4
+SUPPORTED_VERSIONS := 24.11.7 25.05.7 25.11.4 26.05.3
+DEFAULT_VERSION := 26.05.3
 
 SUPPORTED_ROCKY_VERSIONS := 8 9 10
 DEFAULT_ROCKY_VERSION := 10
@@ -42,7 +42,7 @@ help:  ## Show this help message
 	@printf "  ${CYAN}%-15s${RESET} %s\n" "build-all" "Build all version/OS combinations"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make set-version VER=24.11.7"
+	@echo "  make set-version VER=26.05.3"
 	@echo "  make set-os OS=9"
 	@echo "  make test-version VER=25.05.7 OS=9"
 

@@ -83,6 +83,8 @@ RUN set -ex \
        openssl-devel \
        pam-devel \
        perl \
+       pkgconf \
+       pkgconf-pkg-config \
        python3 \
        python3-devel \
        readline-devel \
