@@ -5,7 +5,7 @@
 
 ARG SLURM_VERSION
 ARG ROCKY_VERSION=10
-ARG GOSU_VERSION=1.19
+ARG GOSU_VERSION=1.20
 
 # ============================================================================
 # Stage 1: Build gosu from source
