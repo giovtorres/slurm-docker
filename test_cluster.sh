@@ -186,7 +186,7 @@ test_rest_api() {
 
     # Auto-detect API version from Slurm version. Each release ships a rolling
     # window of data_parser/openapi versions, so try newest first.
-    # `scontrol version` prints e.g. "slurm 26.05.3"; awk/cut keeps this portable
+    # `scontrol version` prints e.g. "slurm 26.05.6"; awk/cut keeps this portable
     # (BSD grep on macOS has no -P, which silently defaulted the version)
     SLURM_VER=$(dexec scontrol version 2>/dev/null | head -1 | awk '{print $2}' | cut -d. -f1,2)
     [ -n "$SLURM_VER" ] || SLURM_VER="26.05"

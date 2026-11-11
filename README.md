@@ -17,7 +17,7 @@ Wait ~20 seconds, then `make shell` to access the cluster.
 26.05.x (default), 25.11.x, 25.05.x, 24.11.x. Switch with:
 
 ```bash
-make set-version VER=24.11.7
+make set-version VER=26.05.6
 make rebuild
 ```
 
@@ -27,7 +27,7 @@ All settings go in `.env` (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SLURM_VERSION` | `26.05.3` | Slurm version to build |
+| `SLURM_VERSION` | `26.05.6` | Slurm version to build |
 | `ROCKY_VERSION` | `10` | Rocky Linux major version (8, 9, or 10) |
 | `MYSQL_USER` | `slurm` | MariaDB user |
 | `MYSQL_PASSWORD` | `password` | MariaDB password |
